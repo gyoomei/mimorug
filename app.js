@@ -422,7 +422,7 @@ function renderResult(gp, signals, score) {
 
   // Signals grid
   const signalsHtml = `
-    <div class="section-title">${t('signals-title')}</div>
+    <div class="section-title">${lang==='en'?'Safety Signals':'Sinyal Keamanan'} (${signals.length})</div>
     <div class="signals-grid">
       ${sortedSignals.map(s => `
         <div class="signal ${s.status}">
