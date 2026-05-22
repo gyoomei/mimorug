@@ -77,6 +77,15 @@ h1.title{font-size:clamp(32px,5.5vw,56px);font-weight:900;letter-spacing:-.025em
 .ex-pill:hover{border-color:var(--acc);color:var(--acc);background:var(--panel)}
 .ex-pill strong{color:var(--text);font-weight:700;display:block;font-size:11px;margin-bottom:1px}
 .ex-pill.warn:hover{border-color:var(--bad);color:var(--bad)}
+
+/* chain selector */
+.chain-selector{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:14px 0;padding-bottom:14px;border-bottom:1px dashed var(--line)}
+.chain-pill{padding:7px 11px;background:var(--panel2);border:1.5px solid var(--line2);border-radius:8px;font-size:11px;font-weight:600;color:var(--muted);cursor:pointer;transition:.15s;font-family:inherit;white-space:nowrap}
+.chain-pill:hover{border-color:var(--acc);color:var(--text)}
+.chain-pill.active{background:color-mix(in srgb,var(--acc) 15%,transparent);border-color:var(--acc);color:var(--acc)}
+
+/* detected chain badge */
+.chain-badge{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;background:color-mix(in srgb,var(--acc) 12%,transparent);border:1px solid color-mix(in srgb,var(--acc) 40%,transparent);border-radius:14px;font-size:11px;font-weight:700;color:var(--acc);margin-top:8px;letter-spacing:.04em;text-transform:uppercase}
 .loading{display:none;flex-direction:column;align-items:center;justify-content:center;padding:48px;text-align:center}
 .loading.on{display:flex}
 .spinner{width:48px;height:48px;border:3px solid var(--line);border-top-color:var(--acc);border-radius:50%;animation:spin 1s linear infinite;margin-bottom:14px}
@@ -186,12 +195,25 @@ footer a:hover{color:var(--acc);border-color:var(--acc)}
       <input class="search-input" id="addr-input" type="text" placeholder="0x... token contract address" autocomplete="off" spellcheck="false" />
       <button class="btn btn-primary" id="go-btn" data-i18n="audit-btn">🛡️ Audit →</button>
     </div>
+    <div class="chain-selector" id="chain-selector">
+      <span class="examples-label" data-i18n="chain-label">Chain:</span>
+      <button class="chain-pill active" data-chain="auto">⚡ <span data-i18n="auto">Auto-detect</span></button>
+      <button class="chain-pill" data-chain="1">⟠ ETH</button>
+      <button class="chain-pill" data-chain="56">🟡 BSC</button>
+      <button class="chain-pill" data-chain="8453">🔵 Base</button>
+      <button class="chain-pill" data-chain="42161">🔷 ARB</button>
+      <button class="chain-pill" data-chain="10">🔴 OP</button>
+      <button class="chain-pill" data-chain="137">🟣 MATIC</button>
+      <button class="chain-pill" data-chain="43114">🔺 AVAX</button>
+      <button class="chain-pill" data-chain="324">⚡ zkSync</button>
+      <button class="chain-pill" data-chain="59144">🟢 Linea</button>
+    </div>
     <div class="examples">
       <span class="examples-label" data-i18n="try-label">Try:</span>
-      <button class="ex-pill" data-addr="0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48" title="USDC"><strong>USDC</strong>Stablecoin</button>
-      <button class="ex-pill" data-addr="0x6982508145454ce325ddbe47a25d4ec3d2311933" title="PEPE"><strong>PEPE</strong>Memecoin</button>
-      <button class="ex-pill" data-addr="0x95ad61b0a150d79219dcf64e1e6cc01f0b64c4ce" title="SHIB"><strong>SHIB</strong>Memecoin</button>
-      <button class="ex-pill warn" data-addr="0x4d224452801aced8b2f0aebe155379bb5d594381" title="APE"><strong>APE</strong>NFT Token</button>
+      <button class="ex-pill" data-addr="0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48" data-chain="1" title="USDC on Ethereum"><strong>USDC</strong>Ethereum</button>
+      <button class="ex-pill" data-addr="0x6982508145454ce325ddbe47a25d4ec3d2311933" data-chain="1" title="PEPE on Ethereum"><strong>PEPE</strong>Ethereum</button>
+      <button class="ex-pill" data-addr="0x0e09fabb73bd3ade0a17ecc321fd13a19e81ce82" data-chain="56" title="CAKE on BSC"><strong>CAKE</strong>BSC</button>
+      <button class="ex-pill" data-addr="0x912ce59144191c1204e64559fe8253a0e49e6548" data-chain="42161" title="ARB on Arbitrum"><strong>ARB</strong>Arbitrum</button>
     </div>
     <div class="error" id="error"></div>
   </div>
@@ -208,6 +230,6 @@ footer a:hover{color:var(--acc);border-color:var(--acc)}
   Built with 🧠 <strong>Xiaomi MiMo V2.5</strong> · <a href="https://github.com/gyoomei/mimorug" target="_blank">GitHub</a> · <a href="https://gopluslabs.io" target="_blank">GoPlus Security</a> · © 2026 MiMoRug
 </footer>
 
-<script src="app.js?v=2"></script>
+<script src="app.js?v=3"></script>
 </body>
 </html>

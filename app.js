@@ -6,10 +6,25 @@
 // ─────────────────────────────────────────────────────────────
 // CONFIG
 // ─────────────────────────────────────────────────────────────
-const GOPLUS = 'https://api.gopluslabs.io/api/v1/token_security/1';
-const BLOCKSCOUT = 'https://eth.blockscout.com/api/v2';
+const GOPLUS_BASE = 'https://api.gopluslabs.io/api/v1/token_security';
 const COINGECKO = 'https://api.coingecko.com/api/v3';
-const DEXSCREENER = 'https://api.dexscreener.com/latest/dex/tokens';
+
+// Multi-chain support — GoPlus chain IDs
+const CHAINS = [
+  { id: '1',     name: 'Ethereum',  short: 'ETH',  emoji: '⟠', explorer: 'https://eth.blockscout.com' },
+  { id: '56',    name: 'BSC',       short: 'BNB',  emoji: '🟡', explorer: 'https://bscscan.com' },
+  { id: '8453',  name: 'Base',      short: 'BASE', emoji: '🔵', explorer: 'https://base.blockscout.com' },
+  { id: '42161', name: 'Arbitrum',  short: 'ARB',  emoji: '🔷', explorer: 'https://arbiscan.io' },
+  { id: '10',    name: 'Optimism',  short: 'OP',   emoji: '🔴', explorer: 'https://optimistic.etherscan.io' },
+  { id: '137',   name: 'Polygon',   short: 'MATIC',emoji: '🟣', explorer: 'https://polygonscan.com' },
+  { id: '43114', name: 'Avalanche', short: 'AVAX', emoji: '🔺', explorer: 'https://snowtrace.io' },
+  { id: '250',   name: 'Fantom',    short: 'FTM',  emoji: '👻', explorer: 'https://ftmscan.com' },
+  { id: '324',   name: 'zkSync',    short: 'ZK',   emoji: '⚡', explorer: 'https://explorer.zksync.io' },
+  { id: '59144', name: 'Linea',     short: 'LINEA',emoji: '🟢', explorer: 'https://lineascan.build' },
+];
+const CHAIN_BY_ID = Object.fromEntries(CHAINS.map(c => [c.id, c]));
+
+let selectedChain = localStorage.getItem('mimorug-chain') || 'auto';
 
 let lang = localStorage.getItem('mimorug-lang') || 'en';
 let lastResult = null;
@@ -28,6 +43,9 @@ const I18N = {
     'pill-4': 'GoPlus + Blockscout',
     'audit-btn': '🛡️ Audit →',
     'try-label': 'Try:',
+    'chain-label': 'Chain:',
+    'auto': 'Auto-detect',
+    'detected-on': 'Detected on',
     'verdict-safe': 'LOOKS SAFE',
     'verdict-caution': 'PROCEED WITH CAUTION',
     'verdict-risky': 'HIGH RISK',
@@ -69,6 +87,9 @@ const I18N = {
     'pill-4': 'GoPlus + Blockscout',
     'audit-btn': '🛡️ Audit →',
     'try-label': 'Coba:',
+    'chain-label': 'Chain:',
+    'auto': 'Auto-deteksi',
+    'detected-on': 'Terdeteksi di',
     'verdict-safe': 'TERLIHAT AMAN',
     'verdict-caution': 'HATI-HATI',
     'verdict-risky': 'RISIKO TINGGI',
@@ -122,31 +143,49 @@ function fmtPct(n){return (Number(n)*100).toFixed(1)+'%';}
 // ─────────────────────────────────────────────────────────────
 // API CALLS
 // ─────────────────────────────────────────────────────────────
-async function fetchGoPlus(addr) {
-  const r = await fetch(`${GOPLUS}?contract_addresses=${addr}`);
-  if (!r.ok) throw new Error('GoPlus API error '+r.status);
+async function fetchGoPlusForChain(chainId, addr) {
+  const r = await fetch(`${GOPLUS_BASE}/${chainId}?contract_addresses=${addr}`);
+  if (!r.ok) return null;
   const data = await r.json();
-  if (data.code !== 1) throw new Error(data.message || 'GoPlus failed');
+  if (data.code !== 1) return null;
   const result = data.result?.[addr.toLowerCase()];
-  if (!result) throw new Error(lang==='en'?'Token not indexed yet':'Token belum diindeks');
+  if (!result || Object.keys(result).length === 0) return null;
+  // Sanity: token must have a name OR symbol OR holders to be considered "indexed"
+  if (!result.token_name && !result.token_symbol && !result.holder_count) return null;
   return result;
 }
 
-async function fetchAddrInfo(addr) {
-  if (!addr || !/^0x[a-f0-9]{40}$/i.test(addr)) return null;
-  try {
-    const r = await fetch(`${BLOCKSCOUT}/addresses/${addr}`);
-    if (!r.ok) return null;
-    return r.json();
-  } catch { return null; }
-}
-
-async function fetchDexscreener(addr) {
-  try {
-    const r = await fetch(`${DEXSCREENER}/${addr}`);
-    if (!r.ok) return null;
-    return r.json();
-  } catch { return null; }
+async function fetchGoPlus(addr) {
+  // If user picked a specific chain, try that only
+  if (selectedChain !== 'auto') {
+    const result = await fetchGoPlusForChain(selectedChain, addr);
+    if (!result) {
+      const chain = CHAIN_BY_ID[selectedChain];
+      throw new Error(lang==='en' ?
+        `Token not indexed on ${chain.name}. Try auto-detect or another chain.` :
+        `Token tidak terindeks di ${chain.name}. Coba auto-detect atau chain lain.`);
+    }
+    result.detected_chain = selectedChain;
+    return result;
+  }
+  // Auto-detect: race across all chains in parallel, pick the first hit
+  const results = await Promise.all(
+    CHAINS.map(async (c) => {
+      const r = await fetchGoPlusForChain(c.id, addr);
+      return r ? { chainId: c.id, result: r } : null;
+    })
+  );
+  // Prefer the chain with the most data (highest holder_count)
+  const hits = results.filter(Boolean).sort((a, b) =>
+    (Number(b.result.holder_count) || 0) - (Number(a.result.holder_count) || 0)
+  );
+  if (hits.length === 0) {
+    throw new Error(lang==='en' ?
+      'Token not found on any supported chain (Ethereum, BSC, Base, Arbitrum, Optimism, Polygon, Avalanche, Fantom, zkSync, Linea)' :
+      'Token tidak ditemukan di chain manapun (Ethereum, BSC, Base, Arbitrum, Optimism, Polygon, Avalanche, Fantom, zkSync, Linea)');
+  }
+  hits[0].result.detected_chain = hits[0].chainId;
+  return hits[0].result;
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -384,6 +423,10 @@ function renderResult(gp, signals, score) {
   const verdict = getVerdict(score);
   const narrative = buildNarrative(gp, signals, score, verdict);
 
+  // Detected chain badge
+  const detectedChain = CHAIN_BY_ID[gp.detected_chain] || CHAIN_BY_ID['1'];
+  const chainBadge = `<div class="chain-badge">${detectedChain.emoji} ${t('detected-on')} ${detectedChain.name}</div>`;
+
   // Sort signals: fail first, then warn, then pass
   const order = { fail: 0, warn: 1, pass: 2 };
   const sortedSignals = [...signals].sort((a, b) => order[a.status] - order[b.status]);
@@ -395,6 +438,7 @@ function renderResult(gp, signals, score) {
         <div class="token-name">${gp.token_name || '—'}</div>
         <div class="token-symbol">$${gp.token_symbol || '?'}</div>
         <div class="token-addr">${gp.contract_addr || ''}</div>
+        ${chainBadge}
       </div>
       <div class="gauge-wrap">
         ${renderGauge(score, verdict.color)}
@@ -481,7 +525,9 @@ async function audit(input) {
   document.getElementById('loading').classList.add('on');
 
   try {
-    setLoadStep(lang==='en' ? 'fetching GoPlus security audit' : 'mengambil audit keamanan GoPlus');
+    setLoadStep(selectedChain === 'auto'
+      ? (lang==='en' ? 'scanning 10 chains in parallel' : 'memindai 10 chain paralel')
+      : (lang==='en' ? `auditing on ${CHAIN_BY_ID[selectedChain]?.name || 'chain'}` : `audit di ${CHAIN_BY_ID[selectedChain]?.name || 'chain'}`));
     const gp = await fetchGoPlus(addr);
     gp.contract_addr = addr;
 
@@ -558,10 +604,38 @@ document.getElementById('addr-input').addEventListener('keydown', e => {
 document.querySelectorAll('.ex-pill').forEach(btn => {
   btn.onclick = () => {
     const a = btn.getAttribute('data-addr');
+    const c = btn.getAttribute('data-chain');
     document.getElementById('addr-input').value = a;
+    if (c) {
+      // Switch to that chain
+      selectedChain = c;
+      localStorage.setItem('mimorug-chain', c);
+      document.querySelectorAll('.chain-pill').forEach(p => {
+        p.classList.toggle('active', p.getAttribute('data-chain') === c);
+      });
+    }
     audit(a);
   };
 });
+
+// Chain selector
+document.querySelectorAll('.chain-pill').forEach(btn => {
+  btn.onclick = () => {
+    const c = btn.getAttribute('data-chain');
+    selectedChain = c;
+    localStorage.setItem('mimorug-chain', c);
+    document.querySelectorAll('.chain-pill').forEach(p => p.classList.remove('active'));
+    btn.classList.add('active');
+  };
+});
+
+// Restore saved chain selection on load
+{
+  const saved = localStorage.getItem('mimorug-chain') || 'auto';
+  document.querySelectorAll('.chain-pill').forEach(p => {
+    p.classList.toggle('active', p.getAttribute('data-chain') === saved);
+  });
+}
 
 document.getElementById('lang-toggle').onclick = () => setLang(lang === 'en' ? 'id' : 'en');
 document.getElementById('theme-toggle').onclick = () => {
