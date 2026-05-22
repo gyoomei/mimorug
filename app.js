@@ -590,6 +590,12 @@ if (urlLang === 'en' || urlLang === 'id') {
   localStorage.setItem('mimorug-lang', urlLang);
   lang = urlLang;
 }
+// Allow ?chain=<id> URL override
+const urlChain = new URLSearchParams(location.search).get('chain');
+if (urlChain && (urlChain === 'auto' || CHAIN_BY_ID[urlChain])) {
+  selectedChain = urlChain;
+  localStorage.setItem('mimorug-chain', urlChain);
+}
 setTheme(localStorage.getItem('mimorug-theme') || 'dark');
 setLang(lang);
 
